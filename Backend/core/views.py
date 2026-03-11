@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -15,6 +16,10 @@ from .permissions import (
     
     CanAccessSettings, PermissionMixin
 )
+
+
+def health(request):
+    return HttpResponse("ok", content_type="text/plain")
 
 
 class SettingsViewSet(PermissionMixin, viewsets.ViewSet):

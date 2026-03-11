@@ -26,3 +26,17 @@ dist-ssr
 **/prompts
 **/__pycache__
 **/db.sqlite3
+**/*.pyc
+.env
+.env.*
+Backend/.env
+Backend/.env.*
+Backend/.venv
+Backend/media
+Backend/staticfiles
+Backend/.pytest_cache
+Backend/.coverage
+front/.env
+front/.env.*
+front/dist
+front/node_modules
