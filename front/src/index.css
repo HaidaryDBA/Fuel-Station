@@ -1,0 +1,309 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* ===============================
+   Animations
+================================ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.8s ease-out;
+}
+
+/* ===============================
+   THEME — LIGHT MODE (AGRICULTURE)
+================================ */
+
+@theme {
+  /* Brand */
+  --color-primary: #0B7A4B;
+  --color-primary-dark: #064E3B;
+  --color-secondary: #66BB4A;
+  --color-accent: #F4CC0B;
+
+  /* Layout */
+  --color-background: #FFFFFF;
+  --color-surface: #F6FBF8;
+  --color-card: #FFFFFF;
+
+  /* Text */
+  --color-text-primary: #064E3B;
+  --color-text-secondary: #4B6B5F;
+
+  /* Borders */
+  --color-border: #D1E7DD;
+
+  /* Muted / disabled */
+  --color-muted: #9DB5AA;
+
+  /* Hover / active surfaces */
+  --color-surface-hover: #ECF5F0;
+
+  /* Focus / ring */
+  --color-focus: #66BB4A;
+
+  /* Status */
+  --color-success: #66BB4A;
+  --color-warning: #F4CC0B;
+  --color-error: #DC2626;
+  --color-info: #0B7A4B;
+
+  /* Soft status backgrounds */
+  --color-info-soft: #E6F4EF;
+  --color-success-soft: #EDF8E9;
+  --color-warning-soft: #FFF7CC;
+  --color-error-soft: #FEE2E2;
+
+  /* Destructive actions */
+  --color-danger: #DC2626;
+}
+
+/* ===============================
+   THEME — DARK MODE (CMS)
+================================ */
+
+[data-theme="dark"] {
+  /* Brand */
+  --color-primary: #66BB4A;
+  --color-primary-dark: #4CAF50;
+  --color-secondary: #81C784;
+  --color-accent: #F4CC0B;
+
+  /* Layout */
+  --color-background: #0F1F17;
+  --color-surface: #132B21;
+  --color-card: #18382C;
+
+  /* Text */
+  --color-text-primary: #E6F4EF;
+  --color-text-secondary: #B7D3C6;
+
+  /* Borders */
+  --color-border: #2F5E4A;
+
+  /* Muted / disabled */
+  --color-muted: #7FA596;
+
+  /* Hover / active surfaces */
+  --color-surface-hover: #1F4A3A;
+
+  /* Focus / ring */
+  --color-focus: #66BB4A;
+
+  /* Status */
+  --color-success: #66BB4A;
+  --color-warning: #F4CC0B;
+  --color-error: #F87171;
+  --color-info: #4ADE80;
+
+  /* Soft status backgrounds */
+  --color-info-soft: #123D2C;
+  --color-success-soft: #14532D;
+  --color-warning-soft: #4A3F12;
+  --color-error-soft: #7F1D1D;
+
+  /* Destructive actions */
+  --color-danger: #F87171;
+}
+
+/* ===============================
+   BASE STYLES
+================================ */
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
+
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ===============================
+   SCROLLBAR
+================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===============================
+   UTILITIES
+================================ */
+
+@layer utilities {
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.5s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      transform: scale(0.9);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+/* ===============================
+   COMPONENTS
+================================ */
+
+@layer components {
+  /* Card */
+  .card {
+    background-color: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Buttons */
+  .btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-primary-dark);
+  }
+
+  .btn-secondary {
+    background-color: var(--color-secondary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 500;
+  }
+
+  .btn-accent {
+    background-color: var(--color-accent);
+    color: var(--color-text-primary);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* Inputs */
+  .input-field {
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    width: 100%;
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(11, 122, 75, 0.2);
+  }
+
+  /* Badges */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .badge-primary {
+    background-color: var(--color-primary);
+    color: white;
+  }
+
+  .badge-secondary {
+    background-color: var(--color-secondary);
+    color: white;
+  }
+
+  .badge-accent {
+    background-color: var(--color-accent);
+    color: var(--color-text-primary);
+  }
+}

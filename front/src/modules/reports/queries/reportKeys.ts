@@ -1,0 +1,18 @@
+export const reportKeys = {
+  root: ['reports-module'] as const,
+  overview: (filters?: unknown) => [...reportKeys.root, 'overview', filters ?? {}] as const,
+  tankStock: (filters?: unknown) => [...reportKeys.root, 'tank-stock', filters ?? {}] as const,
+  accountBalances: (filters?: unknown) => [...reportKeys.root, 'account-balances', filters ?? {}] as const,
+  salesDaily: (filters?: unknown) => [...reportKeys.root, 'sales-daily', filters ?? {}] as const,
+  salesReportDaily: (filters?: unknown) => [...reportKeys.root, 'sales-report-daily', filters ?? {}] as const,
+  salesReportMonthly: (filters?: unknown) => [...reportKeys.root, 'sales-report-monthly', filters ?? {}] as const,
+  salesReportByFuel: (filters?: unknown) => [...reportKeys.root, 'sales-report-by-fuel', filters ?? {}] as const,
+  inventoryTankStatus: (filters?: unknown) => [...reportKeys.root, 'inventory-tank-status', filters ?? {}] as const,
+  inventoryFuelStock: (filters?: unknown) => [...reportKeys.root, 'inventory-fuel-stock', filters ?? {}] as const,
+  inventoryMovements: (filters?: unknown) => [...reportKeys.root, 'inventory-movements', filters ?? {}] as const,
+  financeAccountBalances: (filters?: unknown) => [...reportKeys.root, 'finance-account-balances', filters ?? {}] as const,
+  financeMoneyFlow: (filters?: unknown) => [...reportKeys.root, 'finance-money-flow', filters ?? {}] as const,
+  outstandingLendings: (filters?: unknown) => [...reportKeys.root, 'outstanding-lendings', filters ?? {}] as const,
+  dueSoonLendings: (filters?: unknown) => [...reportKeys.root, 'due-soon-lendings', filters ?? {}] as const,
+  purchaseSummary: (filters?: unknown) => [...reportKeys.root, 'purchase-summary', filters ?? {}] as const,
+};
