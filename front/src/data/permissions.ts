@@ -62,7 +62,6 @@ export const routePermissions: Record<string, Permission | Permission[]> = {
   "/purchasing/orders/new": "purchases",
   "/purchasing/orders/:id": "purchases",
   "/purchasing/orders/:id/edit": "purchases",
-  "/mis/reports": "reports",
   "/mis/parents": "parents",
   "/mis/parents/:id": "parents",
   "/mis/settings": "settings",

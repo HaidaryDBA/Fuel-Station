@@ -1,22 +1,26 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BadgeDollarSign,
-  Fuel,
   RefreshCw,
   Scale,
   Wallet,
 } from "lucide-react";
 
 import { DashboardCard, PageHeader } from "@/components";
-import { Alert, Card, CardContent, CardHeader, Skeleton } from "@/components/ui";
+import { Alert, Badge, Card, CardContent, CardHeader, Skeleton } from "@/components/ui";
 import { extractAxiosError } from "@/utils/extractError";
 
-import { useDashboardSummary } from "./queries/useDashboardQueries";
+import {
+  useDashboardSummary,
+  useDashboardTankStatus,
+  useDashboardTodaySalesByFuel,
+} from "./queries/useDashboardQueries";
 import type {
   DashboardAccountBalance,
-  DashboardFuelInventory,
+  DashboardTankStatus,
   DashboardSalesByCurrency,
+  DashboardTodaySalesByFuel,
 } from "./types/dashboard";
 
 const formatAmount = (value?: string | number) => Number(value || 0).toFixed(2);
@@ -35,7 +39,7 @@ function SummaryTable({
   emptyMessage,
 }: {
   headers: string[];
-  rows: Array<(string | number)[]>;
+  rows: Array<ReactNode[]>;
   emptyMessage: string;
 }) {
   if (!rows.length) {
@@ -73,19 +77,29 @@ function SummaryTable({
 function Dashboard() {
   const { t } = useTranslation();
   const { data, isLoading, isError, error, refetch } = useDashboardSummary();
+  const {
+    data: tankStatusData,
+    isLoading: isTankLoading,
+    isError: isTankError,
+    error: tankError,
+    refetch: refetchTankStatus,
+  } = useDashboardTankStatus();
+  const {
+    data: todaySalesByFuelData,
+    isLoading: isSalesByFuelLoading,
+    isError: isSalesByFuelError,
+    error: salesByFuelError,
+    refetch: refetchSalesByFuel,
+  } = useDashboardTodaySalesByFuel();
 
   const cashAccounts = data?.cash_accounts ?? [];
   const exchangeAccounts = data?.exchange_accounts ?? [];
-  const fuelInventory = data?.fuel_inventory ?? [];
   const todaySales = data?.today_sales;
+  const tankStatus = tankStatusData ?? [];
+  const todaySalesByFuel = todaySalesByFuelData ?? [];
 
   const cashTotals = useMemo(() => sumByCurrency(cashAccounts), [cashAccounts]);
   const exchangeTotals = useMemo(() => sumByCurrency(exchangeAccounts), [exchangeAccounts]);
-
-  const totalFuelLiters = useMemo(
-    () => fuelInventory.reduce((sum, item) => sum + Number(item.liters || 0), 0),
-    [fuelInventory]
-  );
 
   const salesByCurrencyRows = useMemo(
     () =>
@@ -116,13 +130,52 @@ function Dashboard() {
     [exchangeAccounts]
   );
 
-  const fuelRows = useMemo(
-    () =>
-      fuelInventory.map((item: DashboardFuelInventory) => [
-        item.fuel,
-        `${formatAmount(item.liters)} L`,
-      ]),
-    [fuelInventory]
+  const tankRows = useMemo(
+    () => {
+      const renderTankMetric = (primary: string, secondary: string) => (
+        <div>
+          <div className="font-medium text-text-primary">{primary}</div>
+          <div className="text-xs text-text-secondary">{secondary}</div>
+        </div>
+      );
+
+      const renderTankStatus = (item: DashboardTankStatus) => {
+        if (item.is_over_capacity) {
+          return (
+            <Badge variant="error" size="sm">
+              Over capacity
+            </Badge>
+          );
+        }
+        if (item.is_below_min_level) {
+          return (
+            <Badge variant="warning" size="sm" dot>
+              Low level
+            </Badge>
+          );
+        }
+        return (
+          <Badge variant="success" size="sm">
+            Normal
+          </Badge>
+        );
+      };
+
+      return tankStatus.map((item: DashboardTankStatus) => [
+        `${t("Dashboard.table.tank", "Tank")} ${item.tank_number}`,
+        item.fuel_type,
+        renderTankMetric(
+          `${formatAmount(item.capacity_tons)} T`,
+          `${formatAmount(item.capacity_liters)} L`
+        ),
+        renderTankMetric(
+          `${formatAmount(item.current_tons)} T`,
+          `${formatAmount(item.current_liters)} L`
+        ),
+        renderTankStatus(item),
+      ]);
+    },
+    [tankStatus, t]
   );
 
   return (
@@ -131,14 +184,18 @@ function Dashboard() {
         title={t("mis.nav.dashboard", "Dashboard")}
         subtitle={t(
           "Dashboard.text",
-          "Track cash flow, fuel inventory, and today’s sales in one view."
+          "Track cash flow, tank inventory, and today's sales in one view."
         )}
         actions={[
           {
             label: t("employee.refresh", "Refresh"),
             icon: <RefreshCw className="h-4 w-4" />,
             variant: "outline",
-            onClick: () => refetch(),
+            onClick: () => {
+              refetch();
+              refetchTankStatus();
+              refetchSalesByFuel();
+            },
           },
         ]}
       />
@@ -149,9 +206,27 @@ function Dashboard() {
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+      {isTankError && (
+        <Alert variant="error" title={t("Dashboard.errorTankTitle", "Unable to load tank status")}>
+          {extractAxiosError(
+            tankError,
+            t("Dashboard.errorTankText", "Failed to fetch tank inventory status.")
+          )}
+        </Alert>
+      )}
+
+      {isSalesByFuelError && (
+        <Alert variant="error" title={t("Dashboard.errorSalesTitle", "Unable to load today sales")}>
+          {extractAxiosError(
+            salesByFuelError,
+            t("Dashboard.errorSalesText", "Failed to fetch today sales by fuel type.")
+          )}
+        </Alert>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {isLoading ? (
-          Array.from({ length: 5 }).map((_, index) => (
+          Array.from({ length: 3 }).map((_, index) => (
             <Skeleton key={index} variant="rounded" height={120} />
           ))
         ) : (
@@ -171,21 +246,7 @@ function Dashboard() {
               subtitle={t("Dashboard.cards.exchangeAccountsSubtitle", "Active exchange accounts")}
             />
             <DashboardCard
-              title={t("Dashboard.cards.fuelTypes", "Fuel Types")}
-              value={fuelInventory.length}
-              icon={Fuel}
-              color="success"
-              subtitle={t("Dashboard.cards.fuelTypesSubtitle", "Inventory categories")}
-            />
-            <DashboardCard
-              title={t("Dashboard.cards.totalFuel", "Total Fuel")}
-              value={`${formatAmount(totalFuelLiters)} L`}
-              icon={Fuel}
-              color="primary"
-              subtitle={t("Dashboard.cards.totalFuelSubtitle", "All tanks combined")}
-            />
-            <DashboardCard
-              title={t("Dashboard.cards.todaySales", "Today’s Sales")}
+              title={t("Dashboard.cards.todaySales", "Today's Sales")}
               value={
                 todaySales
                   ? `${formatAmount(todaySales.total_amount_base)} ${todaySales.base_currency_code || ""}`.trim()
@@ -199,85 +260,7 @@ function Dashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader
-            title={t("Dashboard.sections.cash", "Cash Accounts")}
-            subtitle={t("Dashboard.sections.cashSubtitle", "Balances by account and currency")}
-          />
-          <CardContent>
-            {isLoading ? (
-              <Skeleton variant="rounded" height={160} />
-            ) : (
-              <>
-                <SummaryTable
-                  headers={[t("Dashboard.table.account", "Account"), t("Dashboard.table.balance", "Balance")]}
-                  rows={cashRows}
-                  emptyMessage={t("Dashboard.empty.cashAccounts", "No cash accounts found.")}
-                />
-                {Object.keys(cashTotals).length > 0 && (
-                  <div className="mt-4 text-sm text-text-secondary">
-                    {Object.entries(cashTotals).map(([currency, amount]) => (
-                      <span key={currency} className="mr-4">
-                        {currency}: {formatAmount(amount)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader
-            title={t("Dashboard.sections.exchange", "Exchange Accounts")}
-            subtitle={t("Dashboard.sections.exchangeSubtitle", "Exchange balances by currency")}
-          />
-          <CardContent>
-            {isLoading ? (
-              <Skeleton variant="rounded" height={160} />
-            ) : (
-              <>
-                <SummaryTable
-                  headers={[t("Dashboard.table.account", "Account"), t("Dashboard.table.balance", "Balance")]}
-                  rows={exchangeRows}
-                  emptyMessage={t("Dashboard.empty.exchangeAccounts", "No exchange accounts found.")}
-                />
-                {Object.keys(exchangeTotals).length > 0 && (
-                  <div className="mt-4 text-sm text-text-secondary">
-                    {Object.entries(exchangeTotals).map(([currency, amount]) => (
-                      <span key={currency} className="mr-4">
-                        {currency}: {formatAmount(amount)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader
-            title={t("Dashboard.sections.inventory", "Fuel Inventory")}
-            subtitle={t("Dashboard.sections.inventorySubtitle", "Total liters by fuel type")}
-          />
-          <CardContent>
-            {isLoading ? (
-              <Skeleton variant="rounded" height={160} />
-            ) : (
-              <SummaryTable
-                headers={[t("Dashboard.table.fuel", "Fuel"), t("Dashboard.table.liters", "Liters")]}
-                rows={fuelRows}
-                emptyMessage={t("Dashboard.empty.fuelInventory", "No inventory data found.")}
-              />
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 gap-4">
         <Card>
           <CardHeader
             title={t("Dashboard.sections.sales", "Today’s Sales")}
@@ -305,6 +288,77 @@ function Dashboard() {
                   </span>
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader
+            title={t("Dashboard.sections.tankInventory", "Tank Inventory Status")}
+            subtitle={t(
+              "Dashboard.sections.tankInventorySubtitle",
+              "Current fuel by tank based on transactions"
+            )}
+          />
+          <CardContent>
+            {isTankLoading ? (
+              <Skeleton variant="rounded" height={160} />
+            ) : (
+              <SummaryTable
+                headers={[
+                  t("Dashboard.table.tank", "Tank"),
+                  t("Dashboard.table.fuel", "Fuel"),
+                  t("Dashboard.table.capacity", "Capacity"),
+                  t("Dashboard.table.currentFuel", "Current Fuel"),
+                  t("Dashboard.table.status", "Status"),
+                ]}
+                rows={tankRows}
+                emptyMessage={t("Dashboard.empty.tankStatus", "No tank inventory data found.")}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title={t("Dashboard.sections.salesByFuel", "Today Sales by Fuel Type")}
+            subtitle={t(
+              "Dashboard.sections.salesByFuelSubtitle",
+              "Revenue and liters sold per fuel type"
+            )}
+          />
+          <CardContent>
+            {isSalesByFuelLoading ? (
+              <Skeleton variant="rounded" height={160} />
+            ) : todaySalesByFuel.length ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {todaySalesByFuel.map((item: DashboardTodaySalesByFuel) => (
+                  <Card key={item.fuel_name} variant="outlined" padding="sm">
+                    <CardHeader title={item.fuel_name} />
+                    <CardContent className="space-y-2">
+                      <div className="text-sm text-text-secondary">
+                        {t("Dashboard.cards.soldToday", "Sold Today")}:{" "}
+                        <span className="font-medium text-text-primary">
+                          {formatAmount(item.liters_sold_today)} L
+                        </span>
+                      </div>
+                      <div className="text-sm text-text-secondary">
+                        {t("Dashboard.cards.revenue", "Revenue")}:{" "}
+                        <span className="font-medium text-text-primary">
+                          {formatAmount(item.total_amount_today)}{" "}
+                          {todaySales?.base_currency_code || ""}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-text-secondary">
+                {t("Dashboard.empty.salesByFuel", "No sales recorded today.")}
+              </p>
             )}
           </CardContent>
         </Card>

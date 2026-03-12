@@ -10,6 +10,7 @@ from .models import InventoryTransaction
 
 
 TWO_DECIMAL_PLACES = Decimal('0.01')
+LITERS_PER_TON = Decimal('1000')
 
 
 def _quantize_quantity(value):
@@ -40,6 +41,21 @@ def _resolve_employee(user):
     return employee
 
 
+def _validate_capacity(tank, quantity, exclude_transaction_id=None):
+    current_liters = tank.get_current_liters(exclude_transaction_id=exclude_transaction_id)
+    capacity_liters = Decimal(tank.capacity) * LITERS_PER_TON
+    incoming_liters = abs(Decimal(quantity))
+    if current_liters + incoming_liters > capacity_liters:
+        raise serializers.ValidationError({'quantity': 'This transaction exceeds the tank capacity.'})
+
+
+def _validate_non_negative(tank, quantity, exclude_transaction_id=None):
+    current_liters = tank.get_current_liters(exclude_transaction_id=exclude_transaction_id)
+    outgoing_liters = abs(Decimal(quantity))
+    if current_liters - outgoing_liters < 0:
+        raise serializers.ValidationError({'quantity': 'This transaction would make the tank inventory negative.'})
+
+
 def _upsert_inventory_transaction(
     *,
     reference_type,
@@ -59,6 +75,19 @@ def _upsert_inventory_transaction(
     ).first()
     normalized_quantity = _quantize_quantity(quantity)
     occurred_at = _date_to_datetime(business_date)
+
+    if transaction_type in ['purchase_in', 'return_in']:
+        _validate_capacity(
+            tank,
+            normalized_quantity,
+            exclude_transaction_id=transaction.id if transaction is not None else None,
+        )
+    if transaction_type in ['sale_out', 'lending_out']:
+        _validate_non_negative(
+            tank,
+            normalized_quantity,
+            exclude_transaction_id=transaction.id if transaction is not None else None,
+        )
 
     if transaction is None:
         return InventoryTransaction.objects.create(

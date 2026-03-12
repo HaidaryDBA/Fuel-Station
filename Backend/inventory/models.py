@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
@@ -41,6 +43,26 @@ class TankStorage(models.Model):
 
     def __str__(self):
         return f'{self.Fuel} {self.tank_number}'
+
+    def get_current_liters(self, exclude_transaction_id=None):
+        total = Decimal('0.00')
+        transactions = InventoryTransaction.objects.filter(tank_id=self)
+        if exclude_transaction_id:
+            transactions = transactions.exclude(pk=exclude_transaction_id)
+
+        for transaction in transactions:
+            quantity = abs(Decimal(transaction.quantity or 0))
+            if transaction.transaction_type in ['purchase_in', 'return_in']:
+                total += quantity
+            elif transaction.transaction_type in ['sale_out', 'lending_out']:
+                total -= quantity
+            elif transaction.transaction_type == 'adjustment':
+                if transaction.adjustment_direction == 'in':
+                    total += quantity
+                elif transaction.adjustment_direction == 'out':
+                    total -= quantity
+
+        return total
 
 
 class FuelMotor(models.Model):

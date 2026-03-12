@@ -8,3 +8,15 @@ export const useDashboardSummary = () =>
     queryKey: dashboardKeys.summary(),
     queryFn: () => dashboardService.getSummary().then((res) => res.data),
   });
+
+export const useDashboardTankStatus = () =>
+  useQuery({
+    queryKey: dashboardKeys.tankStatus(),
+    queryFn: () => dashboardService.getTankStatus().then((res) => res.data),
+  });
+
+export const useDashboardTodaySalesByFuel = () =>
+  useQuery({
+    queryKey: dashboardKeys.todaySales(),
+    queryFn: () => dashboardService.getTodaySalesByFuel().then((res) => res.data),
+  });

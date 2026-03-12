@@ -15,6 +15,7 @@ import {
   useUpdateFinancialTransaction,
 } from '../queries/useFinancialQueries';
 import type { FinancialTransactionFormValues } from '../types/financial';
+import { useFinanceAccountBalancesReport } from '@/modules/reports/queries/useReportQueries';
 
 export default function FinancialTransactionFormPage() {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ export default function FinancialTransactionFormPage() {
   );
   const { data: accountData } = useAccountsList({ page_size: 300, is_active: true });
   const { data: currencyData } = useCurrenciesList();
+  const { data: accountBalances, isLoading: isBalancesLoading } = useFinanceAccountBalancesReport();
   const createTransactionMutation = useCreateFinancialTransaction();
   const updateTransactionMutation = useUpdateFinancialTransaction(parsedId);
 
@@ -121,6 +123,8 @@ export default function FinancialTransactionFormPage() {
         transaction={transaction}
         accounts={accountData?.results ?? []}
         currencies={currencyData?.results ?? []}
+        accountBalances={accountBalances ?? []}
+        isBalanceLoading={isBalancesLoading}
         onSubmit={handleSubmit}
         onCancel={() => navigate('/finance/transactions')}
         isSubmitting={createTransactionMutation.isPending || updateTransactionMutation.isPending}

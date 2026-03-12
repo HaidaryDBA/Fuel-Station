@@ -6,7 +6,8 @@ from core.permissions import PermissionMixin
 
 from .services import (
     get_cash_and_exchange_balances,
-    get_fuel_inventory_totals,
+    get_tank_inventory_status,
+    get_today_sales_overview,
     get_today_sales_summary,
 )
 
@@ -20,7 +21,22 @@ class DashboardSummaryView(PermissionMixin, APIView):
         payload = {
             'cash_accounts': balances['cash_accounts'],
             'exchange_accounts': balances['exchange_accounts'],
-            'fuel_inventory': get_fuel_inventory_totals(),
-            'today_sales': get_today_sales_summary(),
+            'today_sales': get_today_sales_overview(),
         }
         return Response(payload)
+
+
+class TankInventoryStatusView(PermissionMixin, APIView):
+    permission_classes = [IsAuthenticated]
+    permission_module = 'reports'
+
+    def get(self, request):
+        return Response(get_tank_inventory_status())
+
+
+class TodaySalesByFuelView(PermissionMixin, APIView):
+    permission_classes = [IsAuthenticated]
+    permission_module = 'reports'
+
+    def get(self, request):
+        return Response(get_today_sales_summary())

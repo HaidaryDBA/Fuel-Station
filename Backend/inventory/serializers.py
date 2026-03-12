@@ -1,8 +1,12 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from employees.models import Employee
 
 from .models import Fuel, FuelMotor, InventoryTransaction, PriceHistory, TankStorage
+
+LITERS_PER_TON = Decimal('1000')
 
 
 class NullableDateField(serializers.DateField):
@@ -138,6 +142,7 @@ class InventoryTransactionSerializer(serializers.ModelSerializer):
             'adjustment_direction',
             getattr(self.instance, 'adjustment_direction', None),
         )
+        quantity = attrs.get('quantity', getattr(self.instance, 'quantity', None))
 
         if tank is not None and fuel is not None and tank.Fuel_id != fuel.id:
             raise serializers.ValidationError({'fuel_id': 'Selected fuel must match the tank fuel.'})
@@ -149,6 +154,33 @@ class InventoryTransactionSerializer(serializers.ModelSerializer):
 
         if transaction_type != 'adjustment':
             attrs['adjustment_direction'] = None
+
+        if tank is not None and quantity is not None:
+            is_incoming = transaction_type in ['purchase_in', 'return_in'] or (
+                transaction_type == 'adjustment' and adjustment_direction == 'in'
+            )
+            is_outgoing = transaction_type in ['sale_out', 'lending_out'] or (
+                transaction_type == 'adjustment' and adjustment_direction == 'out'
+            )
+            if is_incoming:
+                current_liters = tank.get_current_liters(
+                    exclude_transaction_id=getattr(self.instance, 'pk', None)
+                )
+                capacity_liters = Decimal(tank.capacity) * LITERS_PER_TON
+                incoming_liters = abs(Decimal(quantity))
+                if current_liters + incoming_liters > capacity_liters:
+                    raise serializers.ValidationError(
+                        {'quantity': 'This transaction exceeds the tank capacity.'}
+                    )
+            if is_outgoing:
+                current_liters = tank.get_current_liters(
+                    exclude_transaction_id=getattr(self.instance, 'pk', None)
+                )
+                outgoing_liters = abs(Decimal(quantity))
+                if current_liters - outgoing_liters < 0:
+                    raise serializers.ValidationError(
+                        {'quantity': 'This transaction would make the tank inventory negative.'}
+                    )
 
         return attrs
 

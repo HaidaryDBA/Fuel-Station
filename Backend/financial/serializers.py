@@ -1,7 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from rest_framework import serializers
 from django.utils import timezone
@@ -81,6 +81,41 @@ def convert_amount_to_base(amount, rate_value):
         MONEY_QUANTIZE,
         rounding=ROUND_HALF_UP,
     )
+
+
+def get_account_balance(account, *, as_of=None, exclude_transaction_id=None):
+    if account is None:
+        return Decimal('0.00')
+
+    transactions = FinancialTransaction.objects.filter(
+        Q(transaction_type=FinancialTransaction.TYPE_DEPOSIT, to_account=account)
+        | Q(transaction_type=FinancialTransaction.TYPE_TRANSFER, to_account=account)
+        | Q(transaction_type=FinancialTransaction.TYPE_WITHDRAW, from_account=account)
+        | Q(transaction_type=FinancialTransaction.TYPE_TRANSFER, from_account=account)
+    )
+    if as_of is not None:
+        transactions = transactions.filter(date_time__lte=as_of)
+    if exclude_transaction_id is not None:
+        transactions = transactions.exclude(pk=exclude_transaction_id)
+
+    incoming = (
+        transactions.filter(
+            Q(transaction_type=FinancialTransaction.TYPE_DEPOSIT, to_account=account)
+            | Q(transaction_type=FinancialTransaction.TYPE_TRANSFER, to_account=account)
+        )
+        .aggregate(total=Coalesce(Sum('amount'), Decimal('0.00')))
+        .get('total')
+    )
+    outgoing = (
+        transactions.filter(
+            Q(transaction_type=FinancialTransaction.TYPE_WITHDRAW, from_account=account)
+            | Q(transaction_type=FinancialTransaction.TYPE_TRANSFER, from_account=account)
+        )
+        .aggregate(total=Coalesce(Sum('amount'), Decimal('0.00')))
+        .get('total')
+    )
+
+    return quantize_money((incoming or Decimal('0.00')) - (outgoing or Decimal('0.00')))
 
 
 class CurrencySerializer(serializers.ModelSerializer):
@@ -631,6 +666,7 @@ class FinancialTransactionSerializer(serializers.ModelSerializer):
         to_account = attrs.get('to_account', getattr(self.instance, 'to_account', None))
         currency = attrs.get('currency', getattr(self.instance, 'currency', None))
         date_time = attrs.get('date_time', getattr(self.instance, 'date_time', None))
+        amount = attrs.get('amount', getattr(self.instance, 'amount', None))
         reference_type = attrs.get('reference_type', getattr(self.instance, 'reference_type', ''))
         reference_id = attrs.get('reference_id', getattr(self.instance, 'reference_id', None))
 
@@ -675,6 +711,18 @@ class FinancialTransactionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'to_account': ['Destination account currency must match the transaction currency.']}
                 )
+
+        if amount is not None and from_account is not None:
+            if transaction_type in [FinancialTransaction.TYPE_WITHDRAW, FinancialTransaction.TYPE_TRANSFER]:
+                balance = get_account_balance(
+                    from_account,
+                    as_of=date_time,
+                    exclude_transaction_id=getattr(self.instance, 'pk', None),
+                )
+                if Decimal(amount) > balance:
+                    raise serializers.ValidationError(
+                        {'amount': ['Insufficient funds in the source account.']}
+                    )
 
         return attrs
 

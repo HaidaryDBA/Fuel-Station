@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
@@ -18,12 +18,15 @@ import type {
   FinancialTransaction,
   FinancialTransactionFormValues,
 } from '../types/financial';
+import type { FinanceAccountBalanceRow } from '@/modules/reports/types/reports';
 
 interface FinancialTransactionFormProps {
   initialValues?: Partial<FinancialTransactionFormValues>;
   transaction?: FinancialTransaction;
   accounts: Account[];
   currencies: Currency[];
+  accountBalances?: FinanceAccountBalanceRow[];
+  isBalanceLoading?: boolean;
   onSubmit: (values: FinancialTransactionFormValues) => Promise<void> | void;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -48,6 +51,7 @@ const formatDateTimeLocalInput = (value?: string) => {
 };
 
 const getDefaultDateTime = () => formatDateTimeLocalInput(new Date().toISOString());
+const formatAmount = (value?: string | number) => Number(value || 0).toFixed(2);
 
 const defaultValues: FinancialTransactionFormValues = {
   from_account: 0,
@@ -66,6 +70,8 @@ export default function FinancialTransactionForm({
   transaction,
   accounts,
   currencies,
+  accountBalances = [],
+  isBalanceLoading = false,
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -107,6 +113,43 @@ export default function FinancialTransactionForm({
   const transactionType = watch('transaction_type');
   const selectedCurrency = watch('currency');
   const selectedFromAccount = watch('from_account');
+  const amount = watch('amount');
+
+  const balancesMap = useMemo(() => {
+    const map = new Map<number, FinanceAccountBalanceRow>();
+    accountBalances.forEach((row) => map.set(row.account_id, row));
+    return map;
+  }, [accountBalances]);
+
+  const selectedFromAccountInfo = useMemo(
+    () => accounts.find((account) => account.id === selectedFromAccount),
+    [accounts, selectedFromAccount]
+  );
+
+  const selectedBalance = selectedFromAccount ? balancesMap.get(selectedFromAccount) : undefined;
+  const availableBalance = selectedBalance ? Number(selectedBalance.balance || 0) : null;
+  const balanceCurrency =
+    selectedBalance?.currency || selectedFromAccountInfo?.currency_code || '';
+  const isOutgoing =
+    transactionType === 'withdraw' || transactionType === 'transfer';
+  const isInsufficient =
+    isOutgoing &&
+    selectedFromAccount &&
+    availableBalance !== null &&
+    Number(amount || 0) > availableBalance;
+  const insufficientMessage = isInsufficient
+    ? t('financial.insufficientFunds', 'Insufficient funds in the source account.')
+    : undefined;
+  const amountHelperText =
+    isOutgoing && selectedFromAccount
+      ? isBalanceLoading
+        ? t('financial.balanceLoading', 'Checking available balance...')
+        : availableBalance !== null
+        ? `${t('financial.availableBalance', 'Available balance')}: ${formatAmount(
+            availableBalance
+          )} ${balanceCurrency}`.trim()
+        : undefined
+      : undefined;
 
   const availableAccounts = selectedCurrency
     ? accounts.filter((account) => account.currency === selectedCurrency)
@@ -149,6 +192,9 @@ export default function FinancialTransactionForm({
   ];
 
   const submit = async (values: FinancialTransactionFormValues) => {
+    if (isInsufficient) {
+      return;
+    }
     await onSubmit(values);
   };
 
@@ -202,7 +248,8 @@ export default function FinancialTransactionForm({
               min="0.01"
               label={t('financial.amount', 'Amount')}
               {...register('amount', { valueAsNumber: true })}
-              error={errors.amount?.message}
+              error={errors.amount?.message || insufficientMessage}
+              helperText={amountHelperText}
             />
             <Input
               type="datetime-local"
@@ -245,7 +292,7 @@ export default function FinancialTransactionForm({
             <Button type="button" variant="outline" onClick={onCancel}>
               {t('financial.cancel', 'Cancel')}
             </Button>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" loading={isSubmitting} disabled={isInsufficient}>
               {submitLabel}
             </Button>
           </div>

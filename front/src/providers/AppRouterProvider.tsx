@@ -73,7 +73,7 @@ import {
   SaleFormPage,
   SalesListPage,
 } from "@/modules/sales";
-import { ReportsHubPage, SalesReportsPage, InventoryReportsPage, FinanceReportsPage } from "@/modules/reports";
+import { SalesReportsPage, InventoryReportsPage, FinanceReportsPage } from "@/modules/reports";
 
 function LegacyCustomerDetailRedirect() {
   const { id } = useParams();
@@ -240,7 +240,6 @@ function AppRouterProvider() {
         { path: "sales", element: <Navigate to="/sales/sales" replace /> },
 
         // Reports
-        { path: "mis/reports", element: <ReportsHubPage /> },
         { path: "mis/reports/sales", element: <SalesReportsPage /> },
         { path: "mis/reports/inventory", element: <InventoryReportsPage /> },
         { path: "mis/reports/finance", element: <FinanceReportsPage /> },

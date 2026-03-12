@@ -125,15 +125,10 @@ export default function Sidebar() {
       ] as SubNavItem[],
     },
     {
-      path: "/mis/reports",
+      path: "/mis/reports/sales",
       label: "Reports",
       icon: FileText,
       subItems: [
-        {
-          id: "reports-all",
-          path: "/mis/reports",
-          label: "All Reports",
-        },
         {
           id: "reports-sales",
           path: "/mis/reports/sales",

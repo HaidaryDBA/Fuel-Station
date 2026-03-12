@@ -1,15 +1,16 @@
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.db.models import Case, DecimalField, ExpressionWrapper, F, Q, Sum, Value, When
+from django.db.models import DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from financial.models import Account, Currency, FinancialTransaction
-from inventory.models import InventoryTransaction
+from inventory.models import InventoryTransaction, TankStorage
 from sales.models import Sale
 
 
 TWO_DECIMAL_PLACES = Decimal('0.01')
+LITERS_PER_TON = Decimal('1000')
 
 
 def _decimal_value(value=Decimal('0.00')):
@@ -88,50 +89,7 @@ def get_cash_and_exchange_balances(as_of_date=None):
     return {'cash_accounts': cash_accounts, 'exchange_accounts': exchange_accounts}
 
 
-def get_fuel_inventory_totals():
-    signed_quantity = Case(
-        When(transaction_type__in=['purchase_in', 'return_in'], then=F('quantity')),
-        When(
-            transaction_type__in=['sale_out', 'lending_out'],
-            then=ExpressionWrapper(-F('quantity'), output_field=DecimalField(max_digits=18, decimal_places=2)),
-        ),
-        When(transaction_type='adjustment', adjustment_direction='in', then=F('quantity')),
-        When(
-            transaction_type='adjustment',
-            adjustment_direction='out',
-            then=ExpressionWrapper(-F('quantity'), output_field=DecimalField(max_digits=18, decimal_places=2)),
-        ),
-        default=_decimal_value(),
-        output_field=DecimalField(max_digits=18, decimal_places=2),
-    )
-
-    rows = (
-        InventoryTransaction.objects.values('fuel_id', 'fuel_id__fuel_name', 'fuel_id__type')
-        .annotate(
-            liters=Coalesce(
-                Sum(signed_quantity),
-                _decimal_value(),
-                output_field=DecimalField(max_digits=18, decimal_places=2),
-            )
-        )
-        .order_by('fuel_id__fuel_name', 'fuel_id__type')
-    )
-
-    results = []
-    for row in rows:
-        fuel_label = f"{row['fuel_id__fuel_name']} {row['fuel_id__type']}".strip()
-        results.append(
-            {
-                'fuel_id': row['fuel_id'],
-                'fuel': fuel_label,
-                'liters': _quantize(row['liters']),
-            }
-        )
-
-    return results
-
-
-def get_today_sales_summary(today=None):
+def get_today_sales_overview(today=None):
     if today is None:
         today = timezone.localdate()
 
@@ -176,3 +134,83 @@ def get_today_sales_summary(today=None):
             for row in totals_by_currency
         ],
     }
+
+
+def get_tank_inventory_status():
+    tanks = TankStorage.objects.select_related('Fuel').order_by('tank_number', 'Fuel__fuel_name', 'Fuel__type')
+    transactions = InventoryTransaction.objects.select_related('tank_id').all()
+
+    totals = {}
+    for transaction in transactions:
+        quantity = abs(Decimal(transaction.quantity or 0))
+        totals.setdefault(transaction.tank_id_id, Decimal('0.00'))
+
+        if transaction.transaction_type in ['purchase_in', 'return_in']:
+            totals[transaction.tank_id_id] += quantity
+        elif transaction.transaction_type in ['sale_out', 'lending_out']:
+            totals[transaction.tank_id_id] -= quantity
+        elif transaction.transaction_type == 'adjustment':
+            if transaction.adjustment_direction == 'in':
+                totals[transaction.tank_id_id] += quantity
+            elif transaction.adjustment_direction == 'out':
+                totals[transaction.tank_id_id] -= quantity
+
+    results = []
+    for tank in tanks:
+        current_liters = _quantize(totals.get(tank.id, Decimal('0.00')))
+        capacity_tons = _quantize(tank.capacity)
+        capacity_liters = _quantize(Decimal(tank.capacity) * LITERS_PER_TON)
+        current_tons = _quantize(Decimal(current_liters) / LITERS_PER_TON)
+        min_level_alert_tons = _quantize(Decimal(tank.min_level_alert or 0))
+        min_level_alert_liters = _quantize(Decimal(tank.min_level_alert or 0) * LITERS_PER_TON)
+
+        results.append(
+            {
+                'tank_number': tank.tank_number,
+                'fuel_type': f"{tank.Fuel.fuel_name} {tank.Fuel.type}".strip(),
+                'capacity_tons': capacity_tons,
+                'capacity_liters': capacity_liters,
+                'current_liters': current_liters,
+                'current_tons': current_tons,
+                'min_level_alert_tons': min_level_alert_tons,
+                'min_level_alert_liters': min_level_alert_liters,
+                'is_below_min_level': current_liters <= min_level_alert_liters if min_level_alert_liters > 0 else False,
+                'is_over_capacity': current_liters > capacity_liters if capacity_liters > 0 else False,
+            }
+        )
+    return results
+
+
+def get_today_sales_summary(today=None):
+    if today is None:
+        today = timezone.localdate()
+
+    rows = (
+        Sale.objects.filter(sale_date=today)
+        .values('fuel_id', 'fuel__fuel_name', 'fuel__type')
+        .annotate(
+            liters_sold_today=Coalesce(
+                Sum('amount'),
+                _decimal_value(),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            ),
+            total_amount_today=Coalesce(
+                Sum('total_amount_in_base_currency'),
+                _decimal_value(),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            ),
+        )
+        .order_by('fuel__fuel_name', 'fuel__type')
+    )
+
+    results = []
+    for row in rows:
+        fuel_label = f"{row['fuel__fuel_name']} {row['fuel__type']}".strip()
+        results.append(
+            {
+                'fuel_name': fuel_label,
+                'liters_sold_today': _quantize(row['liters_sold_today']),
+                'total_amount_today': _quantize(row['total_amount_today']),
+            }
+        )
+    return results
