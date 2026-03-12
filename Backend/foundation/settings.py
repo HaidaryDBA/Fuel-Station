@@ -51,6 +51,18 @@ ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 if "healthcheck.railway.app" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append("healthcheck.railway.app")
 
+def _add_host_from_env(name: str) -> None:
+    value = os.getenv(name)
+    if not value:
+        return
+    value = value.replace("https://", "").replace("http://", "")
+    value = value.split("/")[0]
+    if value and value not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(value)
+
+_add_host_from_env("RAILWAY_PUBLIC_DOMAIN")
+_add_host_from_env("RAILWAY_PRIVATE_DOMAIN")
+
 
 # Application definition
 
