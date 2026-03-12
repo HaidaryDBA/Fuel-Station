@@ -28,18 +28,38 @@ def _env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    value = value.strip().strip('"').strip("'")
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def _env_str(name: str, default: str = "") -> str:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().strip('"').strip("'")
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    value = value.strip().strip('"').strip("'")
+    try:
+        return int(value)
+    except ValueError:
+        return default
 
 
 def _env_list(name: str, default: Optional[List[str]] = None) -> List[str]:
     value = os.getenv(name)
     if value is None:
         return default or []
-    return [item.strip() for item in value.split(",") if item.strip()]
+    value = value.strip().strip('"').strip("'")
+    return [item.strip().strip('"').strip("'") for item in value.split(",") if item.strip()]
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv(
+SECRET_KEY = _env_str(
     "SECRET_KEY",
     "django-insecure-fs6v95f(_-oq0mbv0&s-dzlpuwwdlail=np=ljj$z0=xw0!dy^",
 )
@@ -55,6 +75,7 @@ def _add_host_from_env(name: str) -> None:
     value = os.getenv(name)
     if not value:
         return
+    value = value.strip().strip('"').strip("'")
     value = value.replace("https://", "").replace("http://", "")
     value = value.split("/")[0]
     if value and value not in ALLOWED_HOSTS:
@@ -132,7 +153,7 @@ WSGI_APPLICATION = 'foundation.wsgi.application'
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=int(os.getenv("DATABASE_CONN_MAX_AGE", "600")),
+        conn_max_age=_env_int("DATABASE_CONN_MAX_AGE", 600),
         conn_health_checks=_env_bool("DATABASE_CONN_HEALTH_CHECKS", default=True),
     )
 }
@@ -177,15 +198,15 @@ SIMPLE_JWT = {
 
 AUTH_COOKIE_NAME = "refresh_token"
 AUTH_COOKIE_HTTPONLY = True
-AUTH_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")
+AUTH_COOKIE_SAMESITE = _env_str("AUTH_COOKIE_SAMESITE", "Lax")
 AUTH_COOKIE_SECURE = _env_bool("AUTH_COOKIE_SECURE", default=not DEBUG)
 AUTH_COOKIE_PATH = "/"
 AUTH_COOKIE_MAX_AGE = int(SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
 
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
-SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
-CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_SAMESITE = _env_str("SESSION_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_SAMESITE = _env_str("CSRF_COOKIE_SAMESITE", "Lax")
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
@@ -230,12 +251,12 @@ SERVE_MEDIA = _env_bool("SERVE_MEDIA", default=DEBUG)
 
 # Email Settings Configuration
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST = _env_str("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = _env_int("EMAIL_PORT", 587)
 EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", default=True)
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
+EMAIL_HOST_USER = _env_str("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = _env_str("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = _env_str("DEFAULT_FROM_EMAIL", "")
 
 
 # Static files (CSS, JavaScript, Images)
