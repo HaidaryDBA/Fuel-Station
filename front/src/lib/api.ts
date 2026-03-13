@@ -17,7 +17,31 @@ const clearAccessToken = (): void => {
   sessionStorage.removeItem("accessToken");
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+type RuntimeEnv = {
+  VITE_API_BASE_URL?: string;
+};
+
+declare global {
+  interface Window {
+    __ENV__?: RuntimeEnv;
+  }
+}
+
+const normalizeBaseUrl = (value?: string | null) => {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : undefined;
+};
+
+const runtimeBaseUrl =
+  typeof window !== "undefined" ? normalizeBaseUrl(window.__ENV__?.VITE_API_BASE_URL) : undefined;
+
+const API_BASE_URL =
+  runtimeBaseUrl ||
+  normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) ||
+  (import.meta.env.PROD ? "/api" : "http://localhost:8000/api");
 const REFRESH_ENDPOINT = "/accounts/token/refresh/";
 
 // Create axios instance with default config
