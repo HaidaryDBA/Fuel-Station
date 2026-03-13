@@ -9,7 +9,8 @@ This repo deploys as two Railway services using separate Dockerfiles.
 **Railway setup**
 1. Create a new Railway project from this repo.
 1. Add two services from the same repo.
-1. For the backend service, set `RAILWAY_DOCKERFILE_PATH=Backend/Dockerfile`.
+1. For the backend service, set `RAILWAY_DOCKERFILE_PATH=Backend/foundation/Dockerfile`.
+1. If your Railway service root directory is `Backend`, use `RAILWAY_DOCKERFILE_PATH=foundation/Dockerfile` instead.
 1. For the frontend service, set `RAILWAY_DOCKERFILE_PATH=front/Dockerfile`.
 
 **Backend (Django) variables**
@@ -53,5 +54,5 @@ Set these service variables to create a default admin on deploy:
 1. Optional: set Railway healthcheck path to `/health/` on the backend service.
 
 **Local Docker build (optional)**
-1. Backend: `docker build -t fuel-backend Backend`
+1. Backend: `docker build -f Backend/foundation/Dockerfile -t fuel-backend Backend`
 1. Frontend: `docker build --build-arg VITE_API_BASE_URL=http://localhost:8000/api -t fuel-frontend front`
